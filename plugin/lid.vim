@@ -2,20 +2,20 @@
 " Author: Yegappan Lakshmanan (yegappan AT yahoo DOT com)
 " Version: 2.5
 " Last Modified: March 21, 2013
-" 
+"
 " Overview
 " --------
 " The lid plugin integrates the GNU id-utils lid tool with Vim to lookup
 " keywords in the ID database.
-" 
-" For more information about id utilities (lid, aid, etc), visit the 
-" following pages: 
 "
-"     http://www.gnu.org/software/idutils/idutils.html 
-"     http://www.delorie.com/gnu/docs/id-utils/id-utils_toc.html 
+" For more information about id utilities (lid, aid, etc), visit the
+" following pages:
 "
-" You can download the id-utils binaries for MS-Windows from: 
-" 
+"     http://www.gnu.org/software/idutils/idutils.html
+"     http://www.delorie.com/gnu/docs/id-utils/id-utils_toc.html
+"
+" You can download the id-utils binaries for MS-Windows from:
+"
 "     http://gnuwin32.sourceforge.net/packages/id-utils.htm
 "
 " Installation
@@ -35,17 +35,18 @@
 "
 " Usage
 " -----
-" The lid plugin introduces two Vim commands to lookup keywords in the ID
-" database.
+" The lid plugin introduces three Vim commands to lookup keywords or file names
+" in the ID database.
 "
 "       :Lid [ <keyword> ]
 "       :Aid [ <keyword> ]
+"       :Fnid [ <filename> ]
 "
 " You can lookup keywords in the ID database using the 'Lid' command. For
 " example,
-" 
-"       :Lid<Enter> 
-" 
+"
+"       :Lid<Enter>
+"
 " This command will prompt you for the keyword to lookup.  The default is the
 " current keyword under the cursor.  You can retrieve previously entered
 " keywords using the up and down arrow keys. You can cancel the lookup by
@@ -56,11 +57,11 @@
 "       nnoremap <silent> <F4> :Lid <C-R><C-W><CR>
 "
 " Add the above mapping to your ~/.vimrc file.
-" 
+"
 " You can also specify the keyword to the Lid command like this:
-" 
+"
 "       :Lid <keyword>
-" 
+"
 " In the above command format, you can press the <Tab> key to expand
 " keywords from a tags file.
 "
@@ -81,7 +82,7 @@
 " you can use the following command:
 "
 "       :Lid -i
-" 
+"
 " You can use the ":Aid" command to list all the matching keywords in the
 " ID database that has the specified literal pattern:
 "
@@ -89,6 +90,11 @@
 "
 " All the above description about the :Lid command also applies to the
 " :Aid command.
+"
+" You can use the ":Fnid" command to list all the matching file names in
+" the ID database that has the specified literal pattern:
+"
+"       :Fnid <filename>
 "
 " The output of the lid command will be listed in the Vim quickfix window.
 " 1. You can select a line in the quickfix window and press <Enter> or double
@@ -103,7 +109,7 @@
 "    window again.
 "
 " For more information about other quickfix commands read ":help quickfix"
-" 
+"
 " Configuration
 " -------------
 " By changing the following variables you can configure the behavior of this
@@ -115,7 +121,7 @@
 " by setting the 'LID_Cmd' variable:
 "
 "       let LID_Cmd = '/my/path/lid'
-" 
+"
 " By default, this plugin uses 'ID' as the name of the database.  This is
 " defined by the 'LID_File' variable.  You can change the name/location of the
 " ID database by setting the 'LID_File' variable:
@@ -136,10 +142,10 @@
 " set the 'LID_Search_Multiple_ID_Files' variable to 1 to always search for a
 " keyword in all the specified ID files. By default,
 " 'LID_Search_Multiple_ID_Files' variable is set to one. All the specified ID
-" files are searched for the keyword. 
+" files are searched for the keyword.
 "
 "       let LID_Search_Multiple_ID_Files = 0
-" 
+"
 " By default, when you invoke the :Lid command the quickfix window will be
 " opened with the lid output.  You can disable opening the quickfix window,
 " by setting the 'LID_OpenQuickfixWindow' variable to 1:
@@ -199,6 +205,10 @@ endif
 
 if !exists('AID_Cmd')
     let AID_Cmd = 'aid'
+endif
+
+if !exists('FNID_Cmd')
+    let FNID_Cmd = 'fnid'
 endif
 
 " Name of the ID file to supply to lid
@@ -378,12 +388,17 @@ function! s:RunLid(cmd_name, ...)
     let cmd_output = ''
     let id_file_found = 0
 
-    if a:cmd_name == 'aid'
-        let base_cmd = g:AID_Cmd
+    if a:cmd_name == 'fnid'
+        let base_cmd = g:FNID_Cmd
+        let base_cmd = base_cmd . ' ' . lid_opt . ' -S newline'
     else
+      if a:cmd_name == 'aid'
+        let base_cmd = g:AID_Cmd
+      else
         let base_cmd = g:LID_Cmd
+      endif
+      let base_cmd = base_cmd . ' ' . lid_opt . ' -R grep'
     endif
-    let base_cmd = base_cmd . ' ' . lid_opt . ' -R grep'
 
     while id_file != ''
         if !g:LID_Search_Multiple_ID_Files && cmd_output != ''
@@ -422,7 +437,7 @@ function! s:RunLid(cmd_name, ...)
         " None of the ID files specified in the id_file are found
         " So, invoke lid without specifying the ID file location
         "
-        let cmd = base_cmd . ' ' . g:LID_Shell_Quote_Char . id . 
+        let cmd = base_cmd . ' ' . g:LID_Shell_Quote_Char . id .
                     \ g:LID_Shell_Quote_Char
 
         let output = system(cmd)
@@ -436,7 +451,7 @@ function! s:RunLid(cmd_name, ...)
     endif
 
     if cmd_output == ''
-        echohl WarningMsg | echomsg 'Error: Identifier ' . id . ' not found' | 
+        echohl WarningMsg | echomsg 'Error: Identifier ' . id . ' not found' |
                    \ echohl None
         return
     endif
@@ -521,6 +536,7 @@ endfunction
 " Define the Lid command to run lid
 command! -nargs=* -complete=tag Lid call s:RunLid("lid", <f-args>)
 command! -nargs=* -complete=tag Aid call s:RunLid("aid", <f-args>)
+command! -nargs=* -complete=tag Fnid call s:RunLid("fnid", <f-args>)
 
 " restore 'cpo'
 let &cpo = s:cpo_save
