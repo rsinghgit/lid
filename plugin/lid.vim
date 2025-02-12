@@ -496,9 +496,13 @@ function! s:RunLid(cmd_name, ...)
 
     let &verbose = old_verbose
 
-    " Set the 'errorformat' to parse the lid output.
+   " Set the 'errorformat' to parse the lid output.
     let old_efm = &efm
-    set efm=%f:%l:%m
+    if a:cmd_name == 'fnid' && cmd_output != ''
+      set efm=%E[%m],%f
+    else
+      set efm=%f:%l:%m
+    endif
 
     if g:LID_Use_Location_List == 1
         execute 'silent! lgetfile ' . tmpfile
