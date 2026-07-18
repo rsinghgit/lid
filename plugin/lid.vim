@@ -198,6 +198,32 @@ let loaded_lid = 1
 let s:cpo_save = &cpo
 set cpo&vim
 
+" Use jobstart+jobwait instead of system() for consistent non-blocking I/O.
+" On Windows, MSYS2-built binaries (lid, fnid) cannot write to libuv's Win32
+" pipes; routing through Git Bash provides an MSYS2-compatible pipe layer.
+let s:bash_exe = ''
+if has('win32')
+    let s:git_exe = exepath('git')
+    if s:git_exe !=# ''
+        let s:bash_candidate = fnamemodify(s:git_exe, ':h:h') . '\bin\bash.exe'
+        if filereadable(s:bash_candidate)
+            let s:bash_exe = s:bash_candidate
+        endif
+    endif
+endif
+
+function! s:System(cmd)
+    let l:lines = []
+    let l:argv = s:bash_exe !=# '' ? [s:bash_exe, '-c', a:cmd] : split(a:cmd)
+    let l:job = jobstart(l:argv, {
+        \ 'stdout_buffered': 1,
+        \ 'on_stdout': {ch, data, ev -> extend(l:lines, data)}
+        \ })
+    call jobwait([l:job])
+    call filter(l:lines, 'v:val !=# ""')
+    return join(l:lines, "\n")
+endfunction
+
 " The default location of the lid tool.
 if !exists('LID_Cmd')
     let LID_Cmd = 'lid'
@@ -423,7 +449,7 @@ function! s:RunLid(cmd_name, ...)
         let cmd = base_cmd . ' -f ' . one_file . ' '
         let cmd = cmd . g:LID_Shell_Quote_Char . id . g:LID_Shell_Quote_Char
 
-        let output = system(cmd)
+        let output = s:System(cmd)
 
         if v:shell_error && output != ''
             echohl WarningMsg | echomsg output | echohl None
@@ -440,7 +466,7 @@ function! s:RunLid(cmd_name, ...)
         let cmd = base_cmd . ' ' . g:LID_Shell_Quote_Char . id .
                     \ g:LID_Shell_Quote_Char
 
-        let output = system(cmd)
+        let output = s:System(cmd)
 
         if v:shell_error && output != ''
             echohl WarningMsg | echomsg output | echohl None
